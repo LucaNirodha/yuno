@@ -319,19 +319,32 @@ window.changeFontSize = function(step) {
                     var oldBtns = container.querySelectorAll('.territory-btn');
                     oldBtns.forEach(function(b){ b.remove(); });
                     
-                    // Sostituisci i dati locali con quelli del database
                     territories = res.record;
                     
-                    // Ridisegna tutti i bottoni
+                    // --- INIZIO PULIZIA AUTOMATICA ---
+                    var puliziaNecessaria = false;
                     Object.keys(territories).forEach(function(id) {
-                        creaPulsanteZona(id, territories[id]);
+                        var t = territories[id];
+                        // Se la zona è corrotta, vuota o si chiama "undefined"
+                        if (!t || t.name === "undefined" || typeof t.name === "undefined") {
+                            delete territories[id]; // Elimina dal database
+                            puliziaNecessaria = true;
+                        } else {
+                            creaPulsanteZona(id, t); // Disegna solo quelle buone
+                        }
                     });
+
+                    // Se ha trovato roba rotta, salva in automatico il database pulito
+                    if (puliziaNecessaria) {
+                        alert("🧹 Pulizia automatica: Ho trovato ed eliminato le zone 'undefined' bloccate! Salvo il database pulito...");
+                        salvaDatabase();
+                    }
+                    // --- FINE PULIZIA AUTOMATICA ---
                 }
             }
         };
         xhr.send();
     }
-
     function salvaDatabase() {
         if(!BIN_ID) return;
         
