@@ -1,1 +1,513 @@
+<div style="display: flex; justify-content: center; align-items: center; width: 100%; padding: 15px 0;">
+    <div id="gdr-mappa-pioggia" style="display:inline-block; position:relative; width: 75vw; height: 90vh;">
+        <img src="https://i.imgur.com/UzgV7dO.jpeg" alt="Mappa" style="display:block; width:100%; height:100%; object-fit:fill; border:4px solid #6a4625; border-radius:4px; box-shadow:0 10px 30px rgba(0,0,0,0.7);">
+        
+        <!-- Pulsante Master -->
+        <button id="gdr-master-gear" style="position:absolute; top:15px; right:15px; background:none; border:none; font-size:24px; cursor:pointer; z-index:100; opacity:0.3; text-shadow: 0 0 5px rgba(255,255,255,0.8);" title="Modalità Master">⚙️ Gestione</button>
+        
+        <!-- Pulsante Crea Nuova Zona (Nascosto di default) -->
+        <button id="gdr-add-zone" style="position:absolute; top:15px; left:15px; background-color:#1565c0; color:white; border:2px solid #0d47a1; border-radius:5px; font-weight:bold; padding:8px 12px; cursor:pointer; z-index:100; display:none; box-shadow:0 4px 8px rgba(0,0,0,0.5);">➕ Crea Nuova Zona</button>
+    </div>
+</div>
 
+<div id="loc-modal" class="modal-overlay">
+    <div class="modal-content">
+        <button class="close-btn" id="modal-close-trigger">Chiudi X</button>
+        <div class="modal-header">
+            <h2 id="m-title"></h2>
+        </div>
+        
+        <div id="editor-toolbar" class="editor-toolbar" style="display: none;">
+            <span style="font-size: 12px; color: white; display: flex; align-items: center; margin-right: 10px;">FORMATTAZIONE:</span>
+            <button class="tool-btn" onmousedown="event.preventDefault(); document.execCommand('bold', false, null)"><b>B</b> Grassetto</button>
+            <button class="tool-btn" onmousedown="event.preventDefault(); window.changeFontSize(1)">A+ Ingrandisci</button>
+            <button class="tool-btn" onmousedown="event.preventDefault(); window.changeFontSize(-1)">A- Rimpicciolisci</button>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-btn active" id="t-btn-storia">STORIA</button>
+            <button class="tab-btn" id="t-btn-trama">TRAMA</button>
+        </div>
+        
+        <div id="c-storia" class="tab-content active">
+            <div style="margin-bottom: 12px;">
+                <label style="display:block; font-weight:bold; margin-bottom:5px; color:var(--border-color); font-size:12px;">STORIA PRINCIPALE:</label>
+                <div class="rich-textarea storia-area" id="t-storia" contenteditable="false" placeholder="Storia..."></div>
+            </div>
+            <div>
+                <label style="display:block; font-weight:bold; margin-bottom:5px; color:var(--border-color); font-size:12px;">DESCRIZIONE AMBIENTALE:</label>
+                <div class="rich-textarea ambiente-area" id="t-ambiente" contenteditable="false" placeholder="Descrizione dell'ambiente e del paesaggio..."></div>
+            </div>
+        </div>
+        
+        <div id="c-trama" class="tab-content">
+            <div style="margin-bottom: 12px;">
+                <label style="display:block; font-weight:bold; margin-bottom:5px; color:var(--border-color); font-size:12px;">TRAMA DELLA QUEST:</label>
+                <div class="rich-textarea trama-area" id="t-trama" contenteditable="false" placeholder="Trama principale della quest..."></div>
+            </div>
+            <div>
+                <label style="display:block; font-weight:bold; margin-bottom:5px; color:var(--border-color); font-size:12px;">INDIZI SULLA ZONA (Clicca per leggere, modifica nome in modalità Gestione):</label>
+                <div class="clue-tabs">
+                    <div class="clue-btn active" data-index="0" contenteditable="false">Indizio 1</div>
+                    <div class="clue-btn" data-index="1" contenteditable="false">Indizio 2</div>
+                    <div class="clue-btn" data-index="2" contenteditable="false">Indizio 3</div>
+                    <div class="clue-btn" data-index="3" contenteditable="false">Indizio 4</div>
+                </div>
+                <div class="rich-textarea active-clue-area" id="t-active-clue" contenteditable="false" placeholder="Seleziona un indizio..."></div>
+            </div>
+        </div>
+
+        <!-- Pulsanti di salvataggio ed eliminazione (Nascosti di default) -->
+        <button id="gdr-save-btn" style="width:100%; margin-top:15px; padding:10px; background-color:#2e7d32; color:white; border:2px solid #1b5e20; border-radius:5px; font-weight:bold; cursor:pointer; display:none;">💾 SALVA MODIFICHE ONLINE</button>
+        <button id="gdr-delete-btn" style="width:100%; margin-top:10px; padding:10px; background-color:var(--danger-red); color:white; border:2px solid #5a1010; border-radius:5px; font-weight:bold; cursor:pointer; display:none;">🗑️ ELIMINA QUESTA ZONA</button>
+    </div>
+</div>
+
+<style>
+    :root {
+        --bg-color: #e8e1cd;
+        --modal-bg: #f4efdf;
+        --primary-brown: #8b5a33;
+        --secondary-brown: #b89c80;
+        --text-dark: #333;
+        --border-color: #6a4625;
+        --danger-red: #8a1f1f;
+    }
+    .territory-btn {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        padding: 8px 16px;
+        background-color: rgba(139,90,51,0.85);
+        border: 2px solid var(--border-color);
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: bold;
+        color: white;
+        text-shadow: 1px 1px 2px black;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        z-index: 10;
+        white-space: nowrap;
+        user-select: none;
+    }
+    .territory-btn:hover {
+        background-color: var(--primary-brown);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.7);
+    }
+    .territory-btn.draggable-active {
+        cursor: move;
+        background-color: #1565c0 !important;
+        border-color: #0d47a1;
+        z-index: 100;
+    }
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.75);
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-content {
+        background-color: var(--modal-bg);
+        width: 900px;
+        max-width: 95%;
+        border: 4px solid var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        position: relative;
+        box-shadow: 0 5px 25px rgba(0,0,0,0.6);
+        color: var(--text-dark);
+        font-family: sans-serif;
+    }
+    .close-btn {
+        position: absolute;
+        top: 15px; right: 15px;
+        background-color: var(--danger-red); color: white;
+        border: none; padding: 6px 12px; border-radius: 4px;
+        cursor: pointer; font-weight: bold;
+    }
+    .modal-header h2 {
+        text-align: center; margin: 0 0 15px 0;
+        color: var(--border-color); border-bottom: 2px solid var(--border-color);
+        padding-bottom: 10px; font-size: 28px;
+    }
+    .editor-toolbar {
+        display: flex; gap: 8px; margin-bottom: 15px;
+        background: var(--secondary-brown); padding: 8px;
+        border-radius: 5px; border: 2px solid var(--border-color);
+    }
+    .tool-btn {
+        background: var(--bg-color); border: 1px solid var(--border-color);
+        padding: 4px 8px; border-radius: 3px; cursor: pointer;
+        font-size: 13px; color: var(--text-dark); transition: background-color 0.2s;
+    }
+    .tool-btn:hover { background: #fff; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+    .tab-btn {
+        flex: 1; padding: 12px; background-color: var(--secondary-brown);
+        border: 2px solid var(--border-color); border-radius: 5px;
+        cursor: pointer; font-weight: bold; color: white; font-size: 14px;
+    }
+    .tab-btn.active { background-color: var(--primary-brown); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .rich-textarea {
+        width: 100%; box-sizing: border-box; background-color: var(--bg-color);
+        border: 2px solid var(--border-color); border-radius: 5px; padding: 12px;
+        font-family: inherit; font-size: 14px; color: var(--text-dark);
+        line-height: 1.4; overflow-y: auto; white-space: normal;
+    }
+    .rich-textarea[contenteditable="true"] {
+        background-color: #faf8f2; outline: 2px solid #2e7d32; box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+    }
+    .rich-textarea:empty:before { content: attr(placeholder); color: #999; font-style: italic; }
+    .storia-area { height: 180px; }
+    .ambiente-area { height: 180px; }
+    .trama-area { height: 150px; }
+    .active-clue-area { height: 200px; }
+    .clue-tabs { display: flex; gap: 8px; margin-bottom: 8px; }
+    .clue-btn {
+        flex: 1; padding: 10px 4px; background-color: var(--secondary-brown);
+        border: 2px solid var(--border-color); border-radius: 4px; cursor: pointer;
+        font-weight: bold; color: white; font-size: 13px; text-align: center;
+        transition: background-color 0.2s; display: flex; align-items: center;
+        justify-content: center; min-height: 20px;
+    }
+    .clue-btn:hover { background-color: var(--primary-brown); }
+    .clue-btn.active { background-color: var(--primary-brown); box-shadow: inset 0 0 5px rgba(0,0,0,0.5); }
+    .clue-btn[contenteditable="true"] { background-color: #faf8f2; color: var(--text-dark); outline: 2px solid #2e7d32; }
+    
+    #gdr-add-zone:hover { background-color: #0d47a1; }
+    #gdr-delete-btn:hover { background-color: #5a1010; }
+</style>
+
+<script>
+window.changeFontSize = function(step) {
+    var currentSize = document.queryCommandValue('fontSize');
+    var parsedSize = parseInt(currentSize);
+    if (isNaN(parsedSize)) { parsedSize = 3; }
+    var newSize = Math.max(1, Math.min(7, parsedSize + step));
+    document.execCommand('fontSize', false, newSize);
+};
+
+(function(){
+    var isMasterMode = false;
+    var currentId = "";
+    var currentClueIndex = 0; 
+    
+    // CREDENZIALI
+    var API_KEY = "$2a$10$NNi8R1qnzwGu64GesdAhaOF/x87LxLfTxK9flwDA7GVZZOqMSYqIK"; 
+    var BIN_ID = "6a525173f5f4af5e2981100f"; 
+
+    // Oggetto vuoto, verrà riempito dal database
+    var territories = {};
+    var container = document.getElementById("gdr-mappa-pioggia");
+    
+    // Funzione per creare fisicamente il bottone sulla mappa
+    function creaPulsanteZona(id, t) {
+        var btn = document.createElement("button");
+        btn.className = "territory-btn";
+        btn.id = "btn-zona-" + id;
+        btn.innerText = t.name;
+        btn.style.top = t.top;
+        btn.style.left = t.left;
+        
+        if(isMasterMode) {
+            btn.style.backgroundColor = "rgba(21, 101, 192, 0.85)";
+        }
+        
+        var isDragging = false;
+
+        btn.onmousedown = function(e) {
+            if(!isMasterMode) return; // Trascina solo se master
+            isDragging = false;
+            btn.classList.add("draggable-active");
+            var rect = container.getBoundingClientRect();
+
+            function onMouseMove(moveEvent) {
+                var movementX = Math.abs(moveEvent.clientX - e.clientX);
+                var movementY = Math.abs(moveEvent.clientY - e.clientY);
+                if (movementX > 4 || movementY > 4) { isDragging = true; }
+
+                if (isDragging) {
+                    var x = moveEvent.clientX - rect.left;
+                    var y = moveEvent.clientY - rect.top;
+                    var pctX = Math.min(Math.max((x / rect.width) * 100, 0), 100);
+                    var pctY = Math.min(Math.max((y / rect.height) * 100, 0), 100);
+
+                    btn.style.left = pctX.toFixed(1) + "%";
+                    btn.style.top = pctY.toFixed(1) + "%";
+                    
+                    if(territories[id]) {
+                        territories[id].left = btn.style.left;
+                        territories[id].top = btn.style.top;
+                    }
+                }
+            }
+
+            function onMouseUp() {
+                btn.classList.remove("draggable-active");
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        };
+
+        btn.onclick = function(){ 
+            if (!isDragging) { openModal(id); }
+        };
+        
+        container.appendChild(btn);
+    }
+
+    // Funzione per generare una nuova zona
+    function aggiungiNuovaZona() {
+        var nomeZona = prompt("Inserisci il nome per la nuova zona:");
+        if(!nomeZona || nomeZona.trim() === "") return;
+        
+        // Crea un ID univoco basato sul tempo
+        var newId = "zona_" + Date.now();
+        
+        territories[newId] = { 
+            name: nomeZona, 
+            top: "50%", // Appare al centro
+            left: "50%", 
+            storia: "", 
+            ambiente: "", 
+            trama: "", 
+            indizi: ["","","",""], 
+            indizi_nomi: ["","","",""] 
+        };
+        
+        creaPulsanteZona(newId, territories[newId]);
+        alert("Zona '" + nomeZona + "' creata al centro della mappa! Spostala dove preferisci e clicca su SALVA.");
+    }
+    
+    // Funzione per eliminare la zona corrente
+    function eliminaZona() {
+        if(!currentId || !territories[currentId]) return;
+        
+        var conferma = confirm("ATTENZIONE! Vuoi davvero eliminare definitivamente la zona '" + territories[currentId].name + "'?");
+        if(conferma) {
+            // Rimuovi HTML
+            var btn = document.getElementById("btn-zona-" + currentId);
+            if(btn) btn.remove();
+            
+            // Rimuovi dai dati
+            delete territories[currentId];
+            
+            closeModal();
+            alert("Zona eliminata! Ricordati di cliccare il pulsante 'SALVA MODIFICHE ONLINE' se apri un'altra zona, o i cambiamenti andranno persi alla chiusura della pagina.");
+        }
+    }
+
+    function scaricaDatabase() {
+        if (!BIN_ID) return; 
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "https://api.jsonbin.io/v3/b/" + BIN_ID + "/latest", true);
+        xhr.setRequestHeader("X-Master-Key", API_KEY);
+        
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4 && xhr.status === 200) {
+                var res = JSON.parse(xhr.responseText);
+                if(res.record) {
+                    // Pulisci tutti i pulsanti vecchi dalla mappa
+                    var oldBtns = container.querySelectorAll('.territory-btn');
+                    oldBtns.forEach(function(b){ b.remove(); });
+                    
+                    // Sostituisci i dati locali con quelli del database
+                    territories = res.record;
+                    
+                    // Ridisegna tutti i bottoni
+                    Object.keys(territories).forEach(function(id) {
+                        creaPulsanteZona(id, territories[id]);
+                    });
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    function salvaDatabase() {
+        if(!BIN_ID) return;
+        
+        // Salva i dati correnti se la modale è aperta su una zona
+        if(currentId && territories[currentId]) {
+            territories[currentId].storia = document.getElementById("t-storia").innerHTML;
+            territories[currentId].ambiente = document.getElementById("t-ambiente").innerHTML;
+            territories[currentId].trama = document.getElementById("t-trama").innerHTML;
+            territories[currentId].indizi[currentClueIndex] = document.getElementById("t-active-clue").innerHTML;
+            
+            if (!territories[currentId].indizi_nomi) {
+                territories[currentId].indizi_nomi = ["", "", "", ""];
+            }
+            var btns = document.getElementsByClassName("clue-btn");
+            for (var i = 0; i < btns.length; i++) {
+                territories[currentId].indizi_nomi[i] = btns[i].innerText.trim();
+            }
+        }
+
+        document.getElementById("gdr-save-btn").innerText = "🔄 SALVATAGGIO IN CORSO...";
+
+        var xhr = new XMLHttpRequest();
+        xhr.open("PUT", "https://api.jsonbin.io/v3/b/" + BIN_ID, true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader("X-Master-Key", API_KEY);
+        
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+                if(xhr.status === 200) {
+                    alert("✨ Mappa aggiornata e salvata online!");
+                } else {
+                    alert("Errore di salvataggio. Codice errore di risposta: " + xhr.status);
+                }
+                document.getElementById("gdr-save-btn").innerText = "💾 SALVA MODIFICHE ONLINE";
+            }
+        };
+        xhr.send(JSON.stringify(territories));
+    }
+
+    function toggleMasterMode(){
+        if (!isMasterMode) {
+            var password = prompt("Inserisci la password:");
+            if (password !== "NNRFATI1") {
+                alert("❌ Password errata! Non sei autorizzato.");
+                return; 
+            }
+        }
+
+        isMasterMode = !isMasterMode;
+        document.getElementById("gdr-master-gear").style.opacity = isMasterMode ? "1" : "0.3";
+        
+        // Mostra/Nascondi UI Master
+        document.getElementById("gdr-save-btn").style.display = isMasterMode ? "block" : "none";
+        document.getElementById("gdr-delete-btn").style.display = isMasterMode ? "block" : "none";
+        document.getElementById("gdr-add-zone").style.display = isMasterMode ? "block" : "none";
+        document.getElementById("editor-toolbar").style.display = isMasterMode ? "flex" : "none";
+        
+        var fields = ["t-storia", "t-ambiente", "t-trama", "t-active-clue"];
+        fields.forEach(function(fId){
+            document.getElementById(fId).setAttribute("contenteditable", isMasterMode ? "true" : "false");
+        });
+        
+        var clueBtns = document.getElementsByClassName("clue-btn");
+        for (var i = 0; i < clueBtns.length; i++) {
+            clueBtns[i].setAttribute("contenteditable", isMasterMode ? "true" : "false");
+        }
+        
+        // Cambia colore bottoni per indicare lo stato modificabile
+        Array.from(container.getElementsByClassName("territory-btn")).forEach(function(b) {
+            b.style.backgroundColor = isMasterMode ? "rgba(21, 101, 192, 0.85)" : "rgba(139,90,51,0.85)";
+        });
+
+        alert(isMasterMode ? "🔓 Modalità modifica attiva: Ora puoi creare e spostare zone sulla mappa!" : "🔒 Mappa bloccata. Modalità Visualizzazione.");
+    }
+    
+    function switchClueTab(index) {
+        if (index === currentClueIndex) return; 
+        
+        if (currentId && territories[currentId]) {
+            territories[currentId].indizi[currentClueIndex] = document.getElementById("t-active-clue").innerHTML;
+            if (!territories[currentId].indizi_nomi) {
+                territories[currentId].indizi_nomi = ["", "", "", ""];
+            }
+            var btns = document.getElementsByClassName("clue-btn");
+            for (var i = 0; i < btns.length; i++) {
+                territories[currentId].indizi_nomi[i] = btns[i].innerText.trim();
+            }
+        }
+        
+        currentClueIndex = index;
+        
+        var btns = document.getElementsByClassName("clue-btn");
+        for(var i=0; i<btns.length; i++) { btns[i].classList.remove("active"); }
+        btns[index].classList.add("active");
+        
+        if (currentId && territories[currentId]) {
+            document.getElementById("t-active-clue").innerHTML = territories[currentId].indizi[index] || "";
+        }
+    }
+    
+    function openModal(id){
+        currentId = id;
+        var t = territories[id];
+        if(!t) return; // Prevenzione errori
+        
+        document.getElementById("m-title").innerText = t.name;
+        document.getElementById("t-storia").innerHTML = t.storia || "";
+        document.getElementById("t-ambiente").innerHTML = t.ambiente || "";
+        document.getElementById("t-trama").innerHTML = t.trama || "";
+        
+        currentClueIndex = 0;
+        
+        var btns = document.getElementsByClassName("clue-btn");
+        for(var i=0; i<btns.length; i++) { 
+            btns[i].classList.remove("active"); 
+            var nomeDefault = "Indizio " + (i + 1);
+            btns[i].innerText = (t.indizi_nomi && t.indizi_nomi[i] && t.indizi_nomi[i].trim() !== "") ? t.indizi_nomi[i] : nomeDefault;
+        }
+        btns[0].classList.add("active");
+        document.getElementById("t-active-clue").innerHTML = t.indizi[0] || "";
+        
+        switchTab("storia");
+        document.getElementById("loc-modal").classList.add("active");
+    }
+
+    function closeModal(){
+        if (currentId && territories[currentId]) {
+            territories[currentId].indizi[currentClueIndex] = document.getElementById("t-active-clue").innerHTML;
+            if (!territories[currentId].indizi_nomi) {
+                territories[currentId].indizi_nomi = ["", "", "", ""];
+            }
+            var btns = document.getElementsByClassName("clue-btn");
+            for (var i = 0; i < btns.length; i++) {
+                territories[currentId].indizi_nomi[i] = btns[i].innerText.trim();
+            }
+        }
+        document.getElementById("loc-modal").classList.remove("active");
+    }
+
+    function switchTab(tab){
+        var bS = document.getElementById("t-btn-storia");
+        var bT = document.getElementById("t-btn-trama");
+        var cS = document.getElementById("c-storia");
+        var cT = document.getElementById("c-trama");
+        if(tab === "storia"){
+            bS.classList.add("active"); bT.classList.remove("active");
+            cS.classList.add("active"); cT.classList.remove("active");
+        } else {
+            bT.classList.add("active"); bS.classList.remove("active");
+            cT.classList.add("active"); cS.classList.remove("active");
+        }
+    }
+
+    // EVENT LISTENERS
+    document.getElementById("gdr-master-gear").onclick = toggleMasterMode;
+    document.getElementById("gdr-add-zone").onclick = aggiungiNuovaZona;
+    document.getElementById("gdr-delete-btn").onclick = eliminaZona;
+    document.getElementById("modal-close-trigger").onclick = closeModal;
+    document.getElementById("t-btn-storia").onclick = function(){ switchTab("storia") };
+    document.getElementById("t-btn-trama").onclick = function(){ switchTab("trama") };
+    document.getElementById("gdr-save-btn").onclick = salvaDatabase;
+    
+    var clueBtns = document.getElementsByClassName("clue-btn");
+    for(var i=0; i<clueBtns.length; i++) {
+        clueBtns[i].onclick = (function(idx){
+            return function() { switchClueTab(idx); };
+        })(i);
+        clueBtns[i].onkeydown = function(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                this.blur();
+            }
+        };
+    }
+
+    // Inizializzazione: scarica i dati e crea la mappa all'avvio
+    scaricaDatabase();
+})();
+</script>
